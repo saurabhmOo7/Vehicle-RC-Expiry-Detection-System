@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-dark topbar px-4 py-3">
+        <div>
+            <h1 class="navbar-brand mb-1">RC Detection System</h1>
+            <p class="header-subtitle mb-0">Real-time traffic monitoring and challan intelligence</p>
+        </div>
+        <div class="topbar-meta">
+            <span class="live-chip"><span class="live-dot"></span>LIVE</span>
+            <span id="current-time" class="time-chip">--:--:--</span>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row min-vh-100">
+            <aside class="col-lg-2 sidebar p-4">
+                <h5 class="mb-4">Navigation</h5>
+                <a class="nav-link active" href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a class="nav-link" href="{{ url_for('challans') }}">Violations</a>
+                <a class="nav-link" href="#vehicle-db">Vehicle Database</a>
+                <a class="nav-link" href="#history">Detection History</a>
+            </aside>
+
+            <main class="col-lg-10 p-4 dashboard-bg">
+                <div id="live-alert-popup" class="live-alert-popup" role="alert" aria-live="assertive">
+                    <div class="live-alert-title" id="live-alert-title"></div>
+                    <div id="live-alert-text" class="live-alert-text"></div>
+                </div>
+
+                <div class="row g-4 mb-4 fade-in-section">
+                    <div class="col-md-4">
+                        <div class="stat-card stat-card-vehicles">
+                            <div class="stat-head">
+                                <span class="stat-icon"><i class="fa-solid fa-car-side"></i></span>
+                                <span class="stat-label">Total Vehicles</span>
+                            </div>
+                            <h2 id="stat-vehicles">0</h2>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-card stat-card-violations">
+                            <div class="stat-head">
+                                <span class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                                <span class="stat-label">Total Violations</span>
+                            </div>
+                            <h2 id="stat-violations">0</h2>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-card stat-card-challans">
+                            <div class="stat-head">
+                                <span class="stat-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span>
+                                <span class="stat-label">Total Challans</span>
+                            </div>
+                            <h2 id="stat-challans">0</h2>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 fade-in-section">
+                    <div class="col-xl-7">
+                        <div class="panel-card">
+                            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                                <h4 class="mb-0">Live Camera Section</h4>
+                                <span class="live-monitoring"><span class="live-dot"></span>LIVE MONITORING</span>
+                            </div>
+                            <div class="camera-wrap camera-live">
+                                <img src="{{ url_for('video_feed') }}" class="img-fluid camera-frame" alt="Live camera feed">
+                                <div class="camera-overlay-strip">AI OVERLAY ACTIVE</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-5">
+                        <div class="panel-card h-100">
+                            <h4 class="mb-3">Detected Vehicle</h4>
+                            <div class="info-grid">
+                                <div>
+                                    <label><i class="fa-solid fa-id-card me-2"></i>Detected Plate</label>
+                                    <p id="vehicle-number">Waiting for detection</p>
+                                </div>
+                                <div>
+                                    <label><i class="fa-solid fa-shield-halved me-2"></i>RC Status</label>
+                                    <p id="rc-status" class="status-pill neutral">UNKNOWN</p>
+                                </div>
+                                <div>
+                                    <label><i class="fa-solid fa-user me-2"></i>Owner Name</label>
+                                    <p id="owner-name">-</p>
+                                </div>
+                                <div>
+                                    <label><i class="fa-solid fa-car me-2"></i>Vehicle Model</label>
+                                    <p id="vehicle-model">-</p>
+                                </div>
+                                <div>
+                                    <label>RC Expiry Date</label>
+                                    <p id="rc-expiry">-</p>
+                                </div>
+                                <div>
+                                    <label><i class="fa-solid fa-indian-rupee-sign me-2"></i>Fine</label>
+                                    <p id="fine-amount">INR 0</p>
+                                </div>
+                                <div>
+                                    <label><i class="fa-solid fa-location-dot me-2"></i>Location</label>
+                                    <p id="location">Main Gate Junction</p>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <label><i class="fa-solid fa-receipt me-2"></i>Challan Status</label>
+                                <p id="challan-status" class="mb-0 fw-semibold">No challan generated</p>
+                            </div>
+                            <div class="alert mt-3 mb-0" id="detection-message" role="alert">Camera stream starting</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mt-1 fade-in-section">
+                    <div class="col-lg-4">
+                        <div class="panel-card">
+                            <h4>Detected Plate Snapshot</h4>
+                            <div class="snapshot-frame">
+                                <img id="snapshot-image" src="" class="img-fluid d-none" alt="Detected plate snapshot">
+                                <div id="snapshot-empty" class="empty-state">No plate snapshot captured yet.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="panel-card">
+                            <h4>Challan Details Card</h4>
+                            <div id="challan-card" class="challan-card empty-state">No challan generated yet.</div>
+                            <a id="download-challan" href="#" class="btn btn-danger mt-3 d-none" download>Download Challan</a>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="panel-card alert-panel" id="expired-alert-card">
+                            <h4 class="text-danger mb-3">Violation Alert</h4>
+                            <div id="expired-alert" class="empty-state">No active expired RC alert.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mt-1 fade-in-section">
+                    <div class="col-12">
+                        <div class="panel-card">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h4 class="mb-0">RC Status Distribution</h4>
+                                <span class="badge text-bg-info">Live Analytics</span>
+                            </div>
+                            <div class="chart-wrap">
+                                <canvas id="status-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mt-1 fade-in-section">
+                    <div class="col-lg-6" id="vehicle-db">
+                        <div class="panel-card">
+                            <h4>Vehicle Database</h4>
+                            <div class="table-responsive small-table">
+                                <table class="table table-dark table-modern align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Vehicle</th>
+                                            <th>Owner</th>
+                                            <th>Expiry</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="vehicle-db-table"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="panel-card">
+                            <h4>Recent Challans</h4>
+                            <div class="table-responsive small-table">
+                                <table class="table table-dark table-modern align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Vehicle</th>
+                                            <th>Fine</th>
+                                            <th>Timestamp</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recent-challans-table"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mt-1 fade-in-section" id="history">
+                    <div class="col-12">
+                        <div class="panel-card">
+                            <h4>Detection History</h4>
+                            <div class="table-responsive">
+                                <table class="table table-dark table-modern align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Vehicle Number</th>
+                                            <th>Timestamp</th>
+                                            <th>RC Status</th>
+                                            <th>Image Path</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="history-table"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
