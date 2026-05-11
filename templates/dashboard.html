@@ -74,7 +74,46 @@
                                 <span class="live-monitoring"><span class="live-dot"></span>LIVE MONITORING</span>
                             </div>
                             <div class="camera-wrap camera-live">
-                                <img src="{{ url_for('video_feed') }}" class="img-fluid camera-frame" alt="Live camera feed">
+                                <video id="video" autoplay playsinline width="100%" style="border-radius: 12px;"></video>
+
+                                <canvas id="canvas" style="display:none;"></canvas>
+
+                                <script>
+                                const video = document.getElementById("video");
+
+                                navigator.mediaDevices.getUserMedia({
+                                video: true
+                                })
+                                .then((stream) => {
+                                video.srcObject = stream;
+                                });
+
+                                setInterval(() => {
+
+                                     const canvas = document.getElementById("canvas");
+
+                                     canvas.width = video.videoWidth;
+                                     canvas.height = video.videoHeight;
+
+                                     const ctx = canvas.getContext("2d");
+
+                                     ctx.drawImage(video, 0, 0);
+
+                                     canvas.toBlob((blob) => {
+
+                                          const formData = new FormData();
+
+                                          formData.append("frame", blob, "frame.jpg");
+
+                                          fetch("/upload_frame", {
+                                          method: "POST",
+                                          body: formData
+                                        });
+
+                                    }, "image/jpeg");
+
+                                }, 3000);
+                                </script>
                                 <div class="camera-overlay-strip">AI OVERLAY ACTIVE</div>
                             </div>
                         </div>

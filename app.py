@@ -7,7 +7,7 @@ from datetime import datetime
 
 import cv2
 import numpy as np
-from flask import Flask, Response, jsonify, render_template, send_from_directory
+from flask import Flask, Response, jsonify, render_template, send_from_directory, request
 
 from challan.challan_generator import ChallanGenerator
 from database.db import DatabaseManager
@@ -58,9 +58,13 @@ class MonitoringSystem:
         self.failed_reads = 0
         self.last_detection = self._default_detection_state()
 
-        self.capture = self._open_camera()
-        self.thread = threading.Thread(target=self._processing_loop, daemon=True)
-        self.thread.start()
+        if os.environ.get("RENDER"):
+            logger.info("Running on Render - browser camera mode enabled")
+            self.capture = None
+        else:
+            self.capture = self._open_camera()
+            self.thread = threading.Thread(target=self._processing_loop, daemon=True)
+            self.thread.start()
 
     def _default_detection_state(self):
         return {
@@ -379,7 +383,36 @@ class MonitoringSystem:
             self.thread.join(timeout=2)
         if self.capture is not None and self.capture.isOpened():
             self.capture.release()
+    def process_browser_frame(self, frame):
+        detections = self.detector.detect(frame)
 
+        annotated = frame.copy()
+
+        for detection in detections:
+            x1, y1, x2, y2 = detection["bbox"]
+
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+            plate_number = self.ocr.read_plate(detection["crop_path"])
+
+            if plate_number:
+               cv2.putText(
+                   annotated,
+                   plate_number,
+                   (x1, y1 - 10),
+                   cv2.FONT_HERSHEY_SIMPLEX,
+                   0.8,
+                   (0, 255, 0),
+                   2,
+            )
+
+            self._handle_detection(
+                plate_number,
+                frame,
+                (x1, y1, x2, y2)
+            )
+
+        self.current_frame = annotated
 
 monitor = MonitoringSystem()
 atexit.register(monitor.shutdown)
@@ -427,6 +460,25 @@ def captured_plate_file(filename):
 def challan_file(filename):
     return send_from_directory(CHALLANS_DIR, filename, as_attachment=True)
 
+@app.route("/upload_frame", methods=["POST"])
+def upload_frame():
+    file = request.files.get("frame")
+
+    if not file:
+        return jsonify({"error": "No frame uploaded"}), 400
+
+    npimg = np.frombuffer(file.read(), np.uint8)
+    frame = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
+
+    if frame is None:
+        return jsonify({"error": "Invalid image"}), 400
+
+    monitor.process_browser_frame(frame)
+
+    return jsonify({
+        "success": True,
+        "detection": monitor.last_detection
+    })
 
 @app.route("/api/status")
 def api_status():
